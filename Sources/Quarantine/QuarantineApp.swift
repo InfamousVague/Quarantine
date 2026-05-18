@@ -12,23 +12,46 @@ struct QuarantineApp: App {
         Settings { EmptyView() }
     }
 
-    /// Down-arrow glyph, set as a template so macOS tints it for the
+    /// Resolve a bundled resource: Bundle.main (signed .app, flattened
+    /// into Contents/Resources by make-app.sh) first, then
+    /// Bundle.module (dev `swift run`).
+    static func resourceURL(_ name: String, _ ext: String) -> URL? {
+        Bundle.main.url(forResource: name, withExtension: ext)
+            ?? Bundle.module.url(forResource: name, withExtension: ext)
+    }
+
+    /// Brand tray glyph, set as a template so macOS tints it for the
     /// active menu-bar appearance (dark on light bars, light on dark).
+    /// Falls back to the prior SF Symbol if the bundled art is
+    /// missing for any reason.
     static let menuBarIcon: NSImage = {
-        let image = NSImage(systemSymbolName: "arrow.down.circle",
-                            accessibilityDescription: "Quarantine")
-            ?? NSImage()
-        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
-        let sized = image.withSymbolConfiguration(config) ?? image
-        sized.isTemplate = true
-        return sized
+        let image: NSImage
+        if let url = resourceURL("MenuBarIcon", "png"),
+           let loaded = NSImage(contentsOf: url) {
+            image = loaded
+        } else {
+            image = NSImage(
+                systemSymbolName: "arrow.down.circle",
+                accessibilityDescription: "Quarantine"
+            ) ?? NSImage()
+        }
+        let height: CGFloat = 18
+        let aspect = image.size.width / max(image.size.height, 1)
+        image.size = NSSize(width: height * aspect, height: height)
+        image.isTemplate = true
+        return image
     }()
 
-    /// In-app branding glyph (full color tint via SwiftUI).
+    /// In-app branding glyph (the full-colour app icon).
     static let appIcon: NSImage = {
-        NSImage(systemSymbolName: "arrow.down.circle.fill",
-                accessibilityDescription: "Quarantine")
-            ?? NSImage()
+        if let url = resourceURL("AppIcon", "png"),
+           let loaded = NSImage(contentsOf: url) {
+            return loaded
+        }
+        return NSImage(
+            systemSymbolName: "arrow.down.circle.fill",
+            accessibilityDescription: "Quarantine"
+        ) ?? NSImage()
     }()
 }
 
