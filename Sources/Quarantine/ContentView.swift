@@ -1,6 +1,15 @@
 import SwiftUI
 import AppKit
 
+/// Quarantine's brand accent — the cyan chromatic rim of the glass
+/// biohazard icon, brightened so it reads as a confident tint on the
+/// dark popover rather than mud. Mirrors the Espresso/Alfred pattern
+/// (a named accent + a darker companion).
+extension Color {
+    static let quarantineAccent = Color(red: 0.202, green: 0.789, blue: 0.920)
+    static let quarantineAccentDark = Color(red: 0.160, green: 0.372, blue: 0.420)
+}
+
 struct ContentView: View {
     @Environment(QuarantineStore.self) private var store
 
@@ -13,15 +22,24 @@ struct ContentView: View {
             footer
         }
         .frame(width: 400, height: 560)
+        // Brand-tint controls + `.tint` foregrounds panel-wide, the
+        // way Espresso/Alfred apply their accent across the popover.
+        .tint(.quarantineAccent)
     }
 
     private var header: some View {
         HStack(alignment: .center) {
             HStack(alignment: .center, spacing: 6) {
-                Image(nsImage: QuarantineApp.appIcon)
+                // The tray glyph itself, tinted in the brand accent —
+                // exactly how Espresso/Alfred show their glyph in the
+                // panel header (vs. the full-colour app icon).
+                Image(nsImage: QuarantineApp.trayGlyph)
                     .resizable()
+                    .renderingMode(.template)
                     .interpolation(.high)
-                    .frame(width: 18, height: 18)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 22, height: 22)
+                    .foregroundStyle(Color.quarantineAccent)
                 Text("QUARANTINE")
                     .font(.system(size: 13, weight: .semibold))
                     .tracking(2)
@@ -205,7 +223,7 @@ private struct DownloadRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(highlighted ? Color.accentColor.opacity(0.18) : Color.clear)
+        .background(highlighted ? Color.quarantineAccent.opacity(0.18) : Color.clear)
         .animation(.easeInOut(duration: 0.25), value: highlighted)
         .contentShape(Rectangle())
         .onTapGesture { onReveal() }

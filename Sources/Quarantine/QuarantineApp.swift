@@ -42,6 +42,26 @@ struct QuarantineApp: App {
         return image
     }()
 
+    /// The same glyph at full resolution, kept as a template so
+    /// SwiftUI `.foregroundStyle(...)` can tint it cleanly in the
+    /// panel header — the way Espresso/Alfred render their glyph in
+    /// the brand accent. (Distinct from `menuBarIcon`, which is
+    /// downscaled to ~18pt for the status bar.)
+    static let trayGlyph: NSImage = {
+        let image: NSImage
+        if let url = resourceURL("MenuBarIcon", "png"),
+           let loaded = NSImage(contentsOf: url) {
+            image = loaded
+        } else {
+            image = NSImage(
+                systemSymbolName: "arrow.down.circle",
+                accessibilityDescription: "Quarantine"
+            ) ?? NSImage()
+        }
+        image.isTemplate = true
+        return image
+    }()
+
     /// In-app branding glyph (the full-colour app icon).
     static let appIcon: NSImage = {
         if let url = resourceURL("AppIcon", "png"),
