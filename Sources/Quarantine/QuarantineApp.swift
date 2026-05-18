@@ -20,24 +20,17 @@ struct QuarantineApp: App {
             ?? Bundle.module.url(forResource: name, withExtension: ext)
     }
 
-    /// Brand tray glyph, set as a template so macOS tints it for the
-    /// active menu-bar appearance (dark on light bars, light on dark).
-    /// Falls back to the prior SF Symbol if the bundled art is
-    /// missing for any reason.
+    /// Tray glyph: the macOS download symbol
+    /// (`square.and.arrow.down`), a template so macOS tints it for
+    /// the active menu-bar appearance. Vector SF Symbol — no bundled
+    /// raster — so it stays crisp on Retina at any scale.
     static let menuBarIcon: NSImage = {
-        let image: NSImage
-        if let url = resourceURL("MenuBarIcon", "png"),
-           let loaded = NSImage(contentsOf: url) {
-            image = loaded
-        } else {
-            image = NSImage(
-                systemSymbolName: "arrow.down.circle",
-                accessibilityDescription: "Quarantine"
-            ) ?? NSImage()
-        }
-        let height: CGFloat = 18
-        let aspect = image.size.width / max(image.size.height, 1)
-        image.size = NSSize(width: height * aspect, height: height)
+        let cfg = NSImage.SymbolConfiguration(
+            pointSize: 15, weight: .regular)
+        let image = (NSImage(
+            systemSymbolName: "square.and.arrow.down",
+            accessibilityDescription: "Quarantine"
+        ) ?? NSImage()).withSymbolConfiguration(cfg) ?? NSImage()
         image.isTemplate = true
         return image
     }()
