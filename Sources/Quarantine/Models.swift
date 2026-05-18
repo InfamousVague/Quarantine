@@ -83,6 +83,31 @@ final class QuarantineStore {
         }
     }
 
+    // MARK: - VirusTotal key management
+
+    var vtEnvManaged: Bool { VTKeyStore.isEnvManaged }
+    func currentVTKey() -> String { VTKeyStore.keychainKey ?? "" }
+    func validateVTKey(_ key: String) async -> Bool { await VirusTotal.validate(key) }
+
+    func saveVTKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        VTKeyStore.save(trimmed)
+        vtKeyChanged()
+    }
+
+    func clearVTKey() {
+        VTKeyStore.clear()
+        vtKeyChanged()
+    }
+
+    /// Re-query VirusTotal for everything now that the key changed.
+    private func vtKeyChanged() {
+        vtRequested.removeAll()
+        vtVerdicts.removeAll()
+        refresh()
+    }
+
     func revealInFinder(_ item: DownloadItem) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
     }

@@ -30,8 +30,11 @@ See @.claude/rules/code-style.md
 - `Sources/Quarantine/DownloadActions.swift` — the only file-mutating code:
   `defang`/`rearm`/`moveToTrash`/`deletePermanently`, each fenced to
   `~/Downloads`. User-initiated only; the UI confirms the destructive ones.
-- `Sources/Quarantine/VirusTotal.swift` — optional `VT_API_KEY` lookup by hash
-  (async, non-blocking, HTTPS — no ATS exception needed).
+- `Sources/Quarantine/VirusTotal.swift` — optional lookup by hash + key
+  `validate()` (async, non-blocking, HTTPS — no ATS exception needed).
+- `Sources/Quarantine/VTKeyStore.swift` — VirusTotal key persistence in the
+  login Keychain. Resolution order: `VT_API_KEY` env override → Keychain.
+  Managed in-app via the footer “Enable VirusTotal” key sheet.
 - `Sources/Quarantine/Notifier.swift` — `UNUserNotificationCenter` wrapper.
 - `Sources/Quarantine/ContentView.swift` — the menu-bar popover UI (per-row
   actions menu + destructive confirmations + error strip).
@@ -53,6 +56,7 @@ swift run                 # menu-bar item appears; no Dock icon
 bash scripts/make-app.sh  # assembles Quarantine.app (LSUIElement), Developer ID signed
 open Quarantine.app       # run the bundled menu-bar agent
 
-# Optional VirusTotal:
+# Optional VirusTotal: click "Enable VirusTotal" in the popover footer and
+# paste a free key (stored in Keychain). Or override with the env var:
 VT_API_KEY=... swift run
 ```

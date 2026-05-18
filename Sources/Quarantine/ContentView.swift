@@ -12,6 +12,7 @@ extension Color {
 
 struct ContentView: View {
     @Environment(QuarantineStore.self) private var store
+    @State private var showVTSetup = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +31,9 @@ struct ContentView: View {
         // Brand-tint controls + `.tint` foregrounds panel-wide, the
         // way Espresso/Alfred apply their accent across the popover.
         .tint(.quarantineAccent)
+        .sheet(isPresented: $showVTSetup) {
+            VTKeySheet(store: store) { showVTSetup = false }
+        }
     }
 
     private var header: some View {
@@ -127,30 +131,36 @@ struct ContentView: View {
     }
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: 10) {
             Button {
                 store.refresh()
             } label: {
-                Label("Rescan", systemImage: "arrow.clockwise")
-                    .font(.system(size: 11))
+                Image(systemName: "arrow.clockwise")
             }
-            .buttonStyle(.plain)
+            .controlSize(.small)
+            .help("Rescan")
+            Button {
+                showVTSetup = true
+            } label: {
+                Image(systemName: store.vtConfigured
+                    ? "checkmark.shield.fill" : "key.fill")
+            }
+            .controlSize(.small)
+            .tint(store.vtConfigured ? Color.green : Color.quarantineAccent)
+            .help(store.vtConfigured
+                ? "VirusTotal on — change API key"
+                : "Enable VirusTotal (set API key)")
             Spacer()
-            if !store.vtConfigured {
-                Text("Set VT_API_KEY to enable VirusTotal")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            Button("Quit Quarantine") {
+            Button {
                 NSApplication.shared.terminate(nil)
+            } label: {
+                Image(systemName: "power")
             }
-            .font(.system(size: 11))
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .controlSize(.small)
+            .help("Quit Quarantine")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.vertical, 9)
     }
 }
 
@@ -352,6 +362,92 @@ private struct DownloadRow: View {
         case .notApplicable:  return "doc"
         case .unknown:        return "questionmark.circle"
         }
+    }
+}
+
+private struct VTKeySheet: View {
+    let store: QuarantineStore
+    let onClose: () -> Void
+
+    private enum Status { case idle, valid, invalid }
+
+    @State private var keyText = ""
+    @State private var status: Status = .idle
+    @State private var validating = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("VirusTotal API key")
+                .font(.system(size: 14, weight: .semibold))
+
+            if store.vtEnvManaged {
+                Text("The key is currently set by the VT_API_KEY environment variable, which overrides this. Unset it to manage the key here.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Paste a free VirusTotal API key to enrich downloads with a malware verdict. It's stored in your Keychain — no environment variable needed.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                SecureField("VirusTotal API key", text: $keyText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12, design: .monospaced))
+                    .onChange(of: keyText) { _, _ in status = .idle }
+
+                HStack(spacing: 8) {
+                    Link("Get a free key →",
+                         destination: URL(string: "https://www.virustotal.com/gui/my-apikey")!)
+                        .font(.system(size: 11))
+                    Spacer()
+                    if validating {
+                        ProgressView().controlSize(.small)
+                    } else if status == .valid {
+                        Label("Valid", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green).font(.system(size: 11))
+                    } else if status == .invalid {
+                        Label("Invalid key", systemImage: "xmark.circle.fill")
+                            .foregroundStyle(.red).font(.system(size: 11))
+                    }
+                }
+            }
+
+            HStack {
+                if !store.vtEnvManaged && !store.currentVTKey().isEmpty {
+                    Button("Remove", role: .destructive) {
+                        store.clearVTKey()
+                        onClose()
+                    }
+                }
+                Spacer()
+                Button("Cancel", action: onClose)
+                if !store.vtEnvManaged {
+                    Button("Validate") {
+                        Task {
+                            validating = true
+                            status = (await store.validateVTKey(trimmed)) ? .valid : .invalid
+                            validating = false
+                        }
+                    }
+                    .disabled(trimmed.isEmpty || validating)
+                    Button("Save") {
+                        store.saveVTKey(trimmed)
+                        onClose()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(trimmed.isEmpty)
+                }
+            }
+        }
+        .padding(18)
+        .frame(width: 380)
+        .tint(.quarantineAccent)
+        .onAppear { keyText = store.currentVTKey() }
+    }
+
+    private var trimmed: String {
+        keyText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
