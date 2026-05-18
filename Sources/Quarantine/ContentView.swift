@@ -26,6 +26,7 @@ struct ContentView: View {
             footer
         }
         .frame(width: 400, height: 560)
+        .glassScrollers()
         // Brand-tint controls + `.tint` foregrounds panel-wide, the
         // way Espresso/Alfred apply their accent across the popover.
         .tint(.quarantineAccent)
