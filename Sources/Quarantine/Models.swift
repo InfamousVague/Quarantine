@@ -19,6 +19,7 @@ final class QuarantineStore {
     @ObservationIgnored private var firstScanDone = false
     @ObservationIgnored private var vtRequested: Set<String> = []
     @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var scanning = false
 
     func start() {
         refresh()
@@ -29,9 +30,17 @@ final class QuarantineStore {
     }
 
     func refresh() {
+        // Don't stack scans: if the previous tick's scan is still
+        // running (e.g. first-time hashing of a big download), skip
+        // this one rather than piling detached tasks on top.
+        guard !scanning else { return }
+        scanning = true
         Task.detached {
             let scanned = DownloadsScanner.scan()
-            await MainActor.run { self.apply(scanned) }
+            await MainActor.run {
+                self.scanning = false
+                self.apply(scanned)
+            }
         }
     }
 

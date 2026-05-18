@@ -44,6 +44,30 @@ enum DownloadsScanner {
     private static let ignoredNames: Set<String> = [".DS_Store", ".localized", "desktop.ini"]
     private static let inProgressSuffixes = [".download", ".crdownload", ".part", ".partial"]
 
+    /// Content-fingerprint cache. Hashing every file and shelling out
+    /// to `spctl`/`codesign` is expensive; the 5 s poll repeated that
+    /// for unchanged files forever (~8% CPU). A file whose path, size
+    /// and modification date are unchanged since the last scan is
+    /// reused verbatim, so a steady Downloads folder costs only a
+    /// directory `stat` per tick (~0% CPU). Thread-safe: `scan()` runs
+    /// on a detached task and scans can briefly overlap.
+    private final class ScanCache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var map: [String: DownloadItem] = [:]
+        func get(_ key: String) -> DownloadItem? {
+            lock.lock(); defer { lock.unlock() }; return map[key]
+        }
+        func set(_ key: String, _ item: DownloadItem) {
+            lock.lock(); defer { lock.unlock() }; map[key] = item
+        }
+        /// Drop entries for files that no longer exist (bounds memory).
+        func retain(_ keys: Set<String>) {
+            lock.lock(); defer { lock.unlock() }
+            map = map.filter { keys.contains($0.key) }
+        }
+    }
+    private static let scanCache = ScanCache()
+
     /// Synchronous scan — call from a detached task. Newest first.
     static func scan() -> [DownloadItem] {
         let fm = FileManager.default
@@ -59,6 +83,7 @@ enum DownloadsScanner {
         ) else { return [] }
 
         var items: [DownloadItem] = []
+        var liveKeys = Set<String>()
         for url in entries {
             let name = url.lastPathComponent
             if name.hasPrefix(".") || ignoredNames.contains(name) { continue }
@@ -71,6 +96,18 @@ enum DownloadsScanner {
             let isFile = values?.isRegularFile ?? false
             if !isFile && !(isDir && isPackage) { continue }
 
+            // Cheap fingerprint from stat alone (no hashing / no
+            // directory walk / no subprocess). Unchanged file → reuse.
+            let rawSize = values?.fileSize ?? -1
+            let mtime = values?.contentModificationDate ?? Date.distantPast
+            let fingerprint = "\(url.path)#\(rawSize)#\(mtime.timeIntervalSinceReferenceDate)"
+            liveKeys.insert(fingerprint)
+            if let cached = scanCache.get(fingerprint) {
+                items.append(cached)
+                continue
+            }
+
+            // New or changed file: do the expensive work once, cache it.
             let size = Int64(values?.fileSize ?? directorySize(url))
             let added = values?.addedToDirectoryDate
                 ?? values?.contentModificationDate ?? Date.distantPast
@@ -81,7 +118,7 @@ enum DownloadsScanner {
             let hash = sha256Hex(url)
             let sig = Signature.inspect(url)
 
-            items.append(DownloadItem(
+            let item = DownloadItem(
                 path: url.path,
                 name: name,
                 size: size,
@@ -94,8 +131,11 @@ enum DownloadsScanner {
                 trustSummary: sig.summary,
                 authority: sig.authority,
                 teamID: sig.teamID
-            ))
+            )
+            scanCache.set(fingerprint, item)
+            items.append(item)
         }
+        scanCache.retain(liveKeys)
         return items.sorted { $0.dateAdded > $1.dateAdded }
     }
 
