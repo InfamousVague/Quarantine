@@ -59,7 +59,10 @@ struct ContentView: View {
                 Text("~/Downloads")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
-                Text("\(store.items.count) item\(store.items.count == 1 ? "" : "s")")
+                HStack(spacing: 3) {
+                    PaddedCount(store.items.count)
+                    Text("item\(store.items.count == 1 ? "" : "s")")
+                }
                     .font(.system(size: 10))
                     .foregroundStyle(.tint)
             }
