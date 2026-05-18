@@ -1,0 +1,82 @@
+import Foundation
+import Observation
+import AppKit
+
+@MainActor
+@Observable
+final class QuarantineStore {
+    var items: [DownloadItem] = []
+    /// SHA-256 → VirusTotal verdict (populated lazily, best-effort).
+    var vtVerdicts: [String: VirusTotal.Verdict] = [:]
+    var lastError: String?
+    /// File path the user asked to jump to (set from a notification click).
+    var focusedKey: String?
+
+    var vtConfigured: Bool { VirusTotal.isConfigured }
+    var downloadsPath: String { DownloadsScanner.downloadsURL.path }
+
+    @ObservationIgnored private var seenKeys: Set<String> = []
+    @ObservationIgnored private var firstScanDone = false
+    @ObservationIgnored private var vtRequested: Set<String> = []
+    @ObservationIgnored private var timer: Timer?
+
+    func start() {
+        refresh()
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
+    func refresh() {
+        Task.detached {
+            let scanned = DownloadsScanner.scan()
+            await MainActor.run { self.apply(scanned) }
+        }
+    }
+
+    private func apply(_ scanned: [DownloadItem]) {
+        items = scanned
+        let current = Set(scanned.map { $0.id })
+
+        if firstScanDone {
+            let newKeys = current.subtracting(seenKeys)
+            if newKeys.count > 5 {
+                Notifier.postSummary(count: newKeys.count)
+            } else {
+                for item in scanned where newKeys.contains(item.id) {
+                    Notifier.postNewDownload(
+                        key: item.path,
+                        name: item.name,
+                        trust: item.trust,
+                        summary: item.trustSummary
+                    )
+                }
+            }
+        }
+        seenKeys = current
+        firstScanDone = true
+
+        // Best-effort VirusTotal enrichment for items we haven't queried.
+        guard VirusTotal.isConfigured else { return }
+        for item in scanned where !item.sha256.isEmpty
+            && !vtRequested.contains(item.sha256) {
+            vtRequested.insert(item.sha256)
+            let hash = item.sha256
+            Task.detached {
+                if let verdict = await VirusTotal.lookup(sha256: hash) {
+                    await MainActor.run { self.vtVerdicts[hash] = verdict }
+                }
+            }
+        }
+    }
+
+    func revealInFinder(_ item: DownloadItem) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
+    }
+
+    func copyHash(_ item: DownloadItem) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(item.sha256, forType: .string)
+    }
+}
