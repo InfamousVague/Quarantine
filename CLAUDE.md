@@ -4,7 +4,12 @@ Native macOS menu-bar Downloads inspector. Watches `~/Downloads` and, for every
 new file, surfaces its trust posture: the `com.apple.quarantine` agent + origin
 URL, Gatekeeper/codesign status, SHA-256, and (optionally) a VirusTotal verdict.
 Notifies on each new download; click the notification to jump to that file in
-the popover. Swift + SwiftUI, `NSStatusItem` + `NSPopover`, no third-party deps.
+the popover. From the popover, per-item **user-initiated** actions: **Defang**
+(rename to `…​.quarantine` so a double-click can't launch/mount it) and its
+inverse **Re-arm**, **Reveal**, **Move to Trash** (recoverable), and a
+hard-confirmed **Delete Permanently**. Scanning stays read-only; the actions are
+the only mutations, never automatic. Swift + SwiftUI, `NSStatusItem` +
+`NSPopover`, no third-party deps.
 
 ## Commit Convention
 Angular commits required with scope. See @.claude/rules/commit-rules.md for details.
@@ -22,15 +27,23 @@ See @.claude/rules/code-style.md
   reads the `com.apple.quarantine` xattr, streams a CryptoKit SHA-256.
 - `Sources/Quarantine/Signature.swift` — `spctl`/`codesign` Gatekeeper
   classification (notarized / signed / unsigned / n/a).
+- `Sources/Quarantine/DownloadActions.swift` — the only file-mutating code:
+  `defang`/`rearm`/`moveToTrash`/`deletePermanently`, each fenced to
+  `~/Downloads`. User-initiated only; the UI confirms the destructive ones.
 - `Sources/Quarantine/VirusTotal.swift` — optional `VT_API_KEY` lookup by hash
   (async, non-blocking, HTTPS — no ATS exception needed).
 - `Sources/Quarantine/Notifier.swift` — `UNUserNotificationCenter` wrapper.
-- `Sources/Quarantine/ContentView.swift` — the menu-bar popover UI.
+- `Sources/Quarantine/ContentView.swift` — the menu-bar popover UI (per-row
+  actions menu + destructive confirmations + error strip).
 
-## Menu-bar icon
+## Icons
 
-SF Symbol `arrow.down.circle` rendered as a template `NSStatusItem` image
-(macOS tints it for the active bar appearance). No bundled icon assets.
+- `art/AppIcon-source.png` — Dock/Finder icon (glass biohazard).
+  `scripts/make-app.sh` bakes it into `AppIcon.icns`.
+- `Sources/Quarantine/Resources/MenuBarIcon.png` — white biohazard glyph, a
+  template `NSStatusItem` image (macOS tints it for the bar). Also rendered in
+  the popover header tinted with `Color.quarantineAccent`, à la Espresso/Alfred.
+- SF Symbol `arrow.down.circle` is only a fallback if the bundled art is missing.
 
 ## Running
 

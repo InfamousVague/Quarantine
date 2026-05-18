@@ -17,6 +17,10 @@ struct ContentView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let err = store.lastError {
+                errorStrip(err)
+                Divider()
+            }
             list
             Divider()
             footer
@@ -59,6 +63,26 @@ struct ContentView: View {
         .padding(.vertical, 10)
     }
 
+    private func errorStrip(_ message: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(message)
+                .lineLimit(2)
+            Spacer(minLength: 4)
+            Button {
+                store.lastError = nil
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.plain)
+        }
+        .font(.system(size: 10, weight: .medium))
+        .foregroundStyle(Color.red)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .background(Color.red.opacity(0.12))
+    }
+
     private var list: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -76,7 +100,11 @@ struct ContentView: View {
                                 vtConfigured: store.vtConfigured,
                                 highlighted: store.focusedKey == item.path,
                                 onCopyHash: { store.copyHash(item) },
-                                onReveal: { store.revealInFinder(item) }
+                                onReveal: { store.revealInFinder(item) },
+                                onDefang: { store.defang(item) },
+                                onRearm: { store.rearm(item) },
+                                onTrash: { store.moveToTrash(item) },
+                                onDeletePermanently: { store.deletePermanently(item) }
                             )
                             .id(item.path)
                             if index < store.items.count - 1 {
@@ -132,8 +160,14 @@ private struct DownloadRow: View {
     let highlighted: Bool
     let onCopyHash: () -> Void
     let onReveal: () -> Void
+    let onDefang: () -> Void
+    let onRearm: () -> Void
+    let onTrash: () -> Void
+    let onDeletePermanently: () -> Void
 
     @State private var copied = false
+    @State private var confirmingTrash = false
+    @State private var confirmingDelete = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -145,7 +179,7 @@ private struct DownloadRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(item.name)
+                    Text(item.displayName)
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -153,9 +187,20 @@ private struct DownloadRow: View {
                     Text(sizeString)
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.secondary)
+                    actionsMenu
                 }
 
                 HStack(spacing: 6) {
+                    if item.isDefanged {
+                        Text("DEFANGED")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.5)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.18))
+                            .foregroundStyle(Color.orange)
+                            .clipShape(Capsule())
+                    }
                     Text(item.trustSummary)
                         .font(.system(size: 9, weight: .medium))
                         .padding(.horizontal, 5)
@@ -228,6 +273,60 @@ private struct DownloadRow: View {
         .contentShape(Rectangle())
         .onTapGesture { onReveal() }
         .help("Click to reveal in Finder")
+        .confirmationDialog(
+            "Move “\(item.displayName)” to the Trash?",
+            isPresented: $confirmingTrash, titleVisibility: .visible
+        ) {
+            Button("Move to Trash", role: .destructive) { onTrash() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You can restore it from the Trash later.")
+        }
+        .confirmationDialog(
+            "Delete “\(item.displayName)” permanently?",
+            isPresented: $confirmingDelete, titleVisibility: .visible
+        ) {
+            Button("Delete Permanently", role: .destructive) { onDeletePermanently() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone — the file is NOT moved to the Trash.")
+        }
+    }
+
+    @ViewBuilder private var actionsMenu: some View {
+        Menu {
+            if item.isDefanged {
+                Button(action: onRearm) {
+                    Label("Re-arm (restore name)", systemImage: "arrow.uturn.left")
+                }
+            } else {
+                Button(action: onDefang) {
+                    Label("Defang (rename to .quarantine)",
+                          systemImage: "exclamationmark.shield")
+                }
+            }
+            Button(action: onReveal) {
+                Label("Reveal in Finder", systemImage: "magnifyingglass")
+            }
+            Button(action: onCopyHash) {
+                Label("Copy SHA-256", systemImage: "number")
+            }
+            Divider()
+            Button(role: .destructive) { confirmingTrash = true } label: {
+                Label("Move to Trash", systemImage: "trash")
+            }
+            Button(role: .destructive) { confirmingDelete = true } label: {
+                Label("Delete Permanently…", systemImage: "trash.slash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Actions")
     }
 
     private var sizeString: String {

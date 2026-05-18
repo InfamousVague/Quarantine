@@ -3,7 +3,7 @@ import CryptoKit
 import UniformTypeIdentifiers
 
 /// One inspected item in ~/Downloads with its full trust posture.
-struct DownloadItem: Identifiable, Hashable {
+struct DownloadItem: Identifiable, Hashable, Sendable {
     let path: String
     let name: String
     let size: Int64
@@ -20,6 +20,15 @@ struct DownloadItem: Identifiable, Hashable {
     /// Stable identity: path + size (a replaced file re-notifies).
     var id: String { "\(path)#\(size)" }
     var shortHash: String { String(sha256.prefix(16)) }
+
+    /// True once Quarantine has neutralised the file by appending the
+    /// `.quarantine` suffix (so a double-click can't launch it).
+    var isDefanged: Bool { name.hasSuffix(DownloadActions.suffix) }
+
+    /// The name without the defang suffix — what the user recognises.
+    var displayName: String {
+        isDefanged ? String(name.dropLast(DownloadActions.suffix.count)) : name
+    }
 
     static func == (lhs: DownloadItem, rhs: DownloadItem) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

@@ -40,7 +40,10 @@ final class QuarantineStore {
         let current = Set(scanned.map { $0.id })
 
         if firstScanDone {
-            let newKeys = current.subtracting(seenKeys)
+            // A defanged file is one we renamed ourselves — its new
+            // path looks "new" to the diff, but it must never alert.
+            let defanged = Set(scanned.filter { $0.isDefanged }.map { $0.id })
+            let newKeys = current.subtracting(seenKeys).subtracting(defanged)
             if newKeys.count > 5 {
                 Notifier.postSummary(count: newKeys.count)
             } else {
@@ -78,5 +81,41 @@ final class QuarantineStore {
     func copyHash(_ item: DownloadItem) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(item.sha256, forType: .string)
+    }
+
+    // MARK: - User-initiated file actions
+    //
+    // All four are explicit popover clicks (never automatic). They run
+    // off the main actor, surface failures in `lastError`, and trigger
+    // a rescan so the list reflects reality immediately.
+
+    /// Rename so a double-click can't launch/mount it (reversible).
+    func defang(_ item: DownloadItem) { perform { try DownloadActions.defang(item) } }
+
+    /// Undo `defang` — restore the original name (reversible).
+    func rearm(_ item: DownloadItem) { perform { try DownloadActions.rearm(item) } }
+
+    /// Recoverable: move the file to the user's Trash.
+    func moveToTrash(_ item: DownloadItem) { perform { try DownloadActions.moveToTrash(item) } }
+
+    /// IRREVERSIBLE — only call after a destructive confirmation.
+    func deletePermanently(_ item: DownloadItem) {
+        perform { try DownloadActions.deletePermanently(item) }
+    }
+
+    private func perform(_ work: @escaping @Sendable () throws -> Void) {
+        Task.detached {
+            do {
+                try work()
+                await MainActor.run {
+                    self.lastError = nil
+                    self.refresh()
+                }
+            } catch {
+                await MainActor.run {
+                    self.lastError = error.localizedDescription
+                }
+            }
+        }
     }
 }
