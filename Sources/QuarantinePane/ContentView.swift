@@ -26,7 +26,7 @@ struct ContentView: View {
             Divider()
             footer
         }
-        .frame(width: 400, height: 560)
+        .frame(width: 340, height: 540)
         .glassScrollers()
         // Brand-tint controls + `.tint` foregrounds panel-wide, the
         // way Espresso/Alfred apply their accent across the popover.
@@ -42,7 +42,7 @@ struct ContentView: View {
                 // The tray glyph itself, tinted in the brand accent —
                 // exactly how Espresso/Alfred show their glyph in the
                 // panel header (vs. the full-colour app icon).
-                Image(nsImage: QuarantineApp.trayGlyph)
+                Image(nsImage: QuarantineBrand.trayGlyph)
                     .resizable()
                     .renderingMode(.template)
                     .interpolation(.high)
@@ -52,7 +52,6 @@ struct ContentView: View {
                 Text("QUARANTINE")
                     .font(.system(size: 13, weight: .semibold))
                     .tracking(2)
-                LiveDot()
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {

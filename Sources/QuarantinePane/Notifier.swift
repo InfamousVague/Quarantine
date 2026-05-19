@@ -22,7 +22,7 @@ enum Notifier {
             content.title = "Downloaded: \(name)"
             content.body = "\(summary). Click to inspect it in Quarantine."
         }
-        content.userInfo = ["quarantineKey": key]
+        content.userInfo = ["quarantineKey": key, "suitePane": "quarantine", "suiteFocus": key]
         send(id: "dl-\(key.hashValue)", content: content)
     }
 
