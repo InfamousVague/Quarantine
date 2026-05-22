@@ -37,16 +37,16 @@ struct MediumView: View {
 
                 Spacer(minLength: 0)
 
-                // Two-button row: Defang (prominent — takes the
-                // meaningful action on every needs-review item) +
-                // Refresh (icon-only glyph button, secondary). Both
-                // system styles so they stay legible across focused
-                // / dimmed states on macOS Tahoe.
+                // Same `.bordered` styling for both — borderedProminent
+                // was washing out in the widget render pass (system
+                // desaturates the accent fill against the dimmed
+                // background) which made the Defang capsule unreadable.
+                // Matching the Refresh glyph button keeps both legible.
                 HStack(spacing: 6) {
                     Button(intent: DefangNeedsReviewIntent()) {
                         Label("Defang", systemImage: "lock.shield")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(entry.state.needsReviewCount == 0)
 
