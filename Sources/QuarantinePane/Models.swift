@@ -128,6 +128,22 @@ final class QuarantineStore {
     /// Rename so a double-click can't launch/mount it (reversible).
     func defang(_ item: DownloadItem) { perform { try DownloadActions.defang(item) } }
 
+    /// Bulk defang for the widget's DefangNeedsReviewIntent. Defangs
+    /// every non-defanged unsigned/unknown item in the current scan
+    /// — the exact set the widget's needsReviewCount headline refers
+    /// to. Each defang is reversible from the popover via Re-arm.
+    /// Errors on individual items are surfaced through `lastError`
+    /// the same way single-item defang does.
+    func defangNeedsReview() {
+        let targets = items.filter {
+            !$0.isDefanged
+            && ($0.trust == .unsigned || $0.trust == .unknown)
+        }
+        for item in targets {
+            perform { try DownloadActions.defang(item) }
+        }
+    }
+
     /// Undo `defang` — restore the original name (reversible).
     func rearm(_ item: DownloadItem) { perform { try DownloadActions.rearm(item) } }
 

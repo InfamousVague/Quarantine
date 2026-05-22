@@ -38,6 +38,14 @@ public final class QuarantinePaneProvider: NSObject, SuitePane {
     /// the host's AppDelegate registers IntentBus.shared with a
     /// closure that calls this.
     public func paneRescan() { store.refresh() }
+
+    /// External-trigger entry point for the widget's
+    /// DefangNeedsReviewIntent. Defangs every non-defanged
+    /// unsigned/unknown item in the current scan — the exact set
+    /// the widget's needsReviewCount tile is reporting on.
+    public func paneDefangNeedsReview() {
+        store.defangNeedsReview()
+    }
 }
 
 @_cdecl("suitePaneCreate")

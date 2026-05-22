@@ -37,18 +37,27 @@ struct MediumView: View {
 
                 Spacer(minLength: 0)
 
-                Button(intent: RescanIntent()) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.clockwise")
-                        Text("Rescan")
+                // Two-button row: Defang (prominent — takes the
+                // meaningful action on every needs-review item) +
+                // Refresh (icon-only glyph button, secondary). Both
+                // system styles so they stay legible across focused
+                // / dimmed states on macOS Tahoe.
+                HStack(spacing: 6) {
+                    Button(intent: DefangNeedsReviewIntent()) {
+                        Label("Defang", systemImage: "lock.shield")
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(quarantineAmber, in: Capsule())
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(entry.state.needsReviewCount == 0)
+
+                    Button(intent: RescanIntent()) {
+                        Label("Rescan", systemImage: "arrow.clockwise")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Rescan")
                 }
-                .buttonStyle(.plain)
             }
 
             VStack(alignment: .leading, spacing: 4) {

@@ -31,14 +31,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
         NSApp.setActivationPolicy(.accessory)
 
         // Register IntentBus BEFORE deciding whether to defer. The
-        // widget's RescanIntent declares openAppWhenRun = true, so
-        // the system dispatches perform() to this process shortly
-        // after this method returns. Hard-exiting via SuiteGuard
-        // first silences the button.
-        IntentBus.shared.register { [weak self] in
-            self?.pane.paneRescan()
-            self?.showPopover()
-        }
+        // widget's RescanIntent / DefangNeedsReviewIntent declare
+        // openAppWhenRun = true, so the system dispatches perform()
+        // to this process shortly after this method returns.
+        // Hard-exiting via SuiteGuard first silences the buttons.
+        IntentBus.shared.register(
+            rescan: { [weak self] in
+                self?.pane.paneRescan()
+                self?.showPopover()
+            },
+            defangNeedsReview: { [weak self] in
+                self?.pane.paneDefangNeedsReview()
+                self?.showPopover()
+            }
+        )
         pane.paneStart()
         UNUserNotificationCenter.current().delegate = self
 

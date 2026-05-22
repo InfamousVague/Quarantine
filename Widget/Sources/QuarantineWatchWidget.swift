@@ -9,6 +9,12 @@ struct QuarantineWatchWidget: Widget {
         StaticConfiguration(kind: kind, provider: QuarantineProvider()) {
             entry in
             QuarantineWidgetView(entry: entry)
+                // Forces `.accented` in the SwiftUI subtree so any
+                // adaptive code (button styles, image rendering)
+                // reads the dimmed-glass mode regardless of the
+                // widget's actual focus state. Visual consistency
+                // matches the rest of the widget family.
+                .environment(\.widgetRenderingMode, .accented)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Downloads Watch")
