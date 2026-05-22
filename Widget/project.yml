@@ -1,0 +1,40 @@
+name: QuarantineWidgets
+options:
+  bundleIdPrefix: com.mattssoftware.quarantine
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: en
+
+packages:
+  Quarantine:
+    path: ..
+
+targets:
+  QuarantineWidgets:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources
+    info:
+      path: Supporting Files/Info.plist
+      properties:
+        CFBundleDisplayName: Downloads Watch
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mattssoftware.quarantine.widget
+        PRODUCT_NAME: QuarantineWidgets
+        CODE_SIGN_ENTITLEMENTS: Supporting Files/QuarantineWidgets.entitlements
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: F6ZAL7ANAD
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "0.2.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: Quarantine
+        product: QuarantineShared

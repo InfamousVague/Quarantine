@@ -33,6 +33,11 @@ public final class QuarantinePaneProvider: NSObject, SuitePane {
     public func paneFocus(_ key: String) {
         store.focusedKey = key
     }
+
+    /// External-trigger entry point for the widget's RescanIntent —
+    /// the host's AppDelegate registers IntentBus.shared with a
+    /// closure that calls this.
+    public func paneRescan() { store.refresh() }
 }
 
 @_cdecl("suitePaneCreate")

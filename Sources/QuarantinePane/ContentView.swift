@@ -17,6 +17,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+                .frame(height: 46)
             Divider()
             if let err = store.lastError {
                 errorStrip(err)
@@ -25,6 +26,7 @@ struct ContentView: View {
             list
             Divider()
             footer
+                .frame(height: 46)
         }
         .frame(width: 340, height: 540)
         .glassScrollers()

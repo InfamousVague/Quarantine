@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AppKit
+import QuarantineShared
 
 @MainActor
 @Observable
@@ -68,6 +69,7 @@ final class QuarantineStore {
         }
         seenKeys = current
         firstScanDone = true
+        publishSharedSnapshot()
 
         // Best-effort VirusTotal enrichment for items we haven't queried.
         guard VirusTotal.isConfigured else { return }
@@ -151,5 +153,35 @@ final class QuarantineStore {
                 }
             }
         }
+    }
+
+    /// Publish a compact widget-facing snapshot of ~/Downloads'
+    /// trust posture. SharedQuarantineStore writes the JSON to the
+    /// Group Container and kicks WidgetKit to reload its timeline.
+    private func publishSharedSnapshot() {
+        func badge(_ t: TrustLevel) -> SharedQuarantine.Badge {
+            switch t {
+            case .notarized: return .notarized
+            case .signed: return .signed
+            case .unsigned: return .unsigned
+            case .notApplicable: return .notApplicable
+            case .unknown: return .unknown
+            }
+        }
+        let needs = items.filter {
+            $0.trust == .unsigned || $0.trust == .unknown
+        }.count
+        let recent = items
+            .sorted { $0.dateAdded > $1.dateAdded }
+            .prefix(3)
+            .map { SharedQuarantine.Row(
+                name: $0.name, badge: badge($0.trust)) }
+        let snap = SharedQuarantine(
+            totalCount: items.count,
+            needsReviewCount: needs,
+            recent: Array(recent),
+            sampledAt: Date()
+        )
+        SharedQuarantineStore.write(snap)
     }
 }

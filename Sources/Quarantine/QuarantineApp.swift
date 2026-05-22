@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import UserNotifications
 import QuarantinePane
+import QuarantineShared
 import SuiteKit
 
 // Standalone Quarantine. Post-split this is just a host shim — the
@@ -19,18 +20,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
     UNUserNotificationCenterDelegate, NSPopoverDelegate
 {
     private let pane = QuarantinePaneProvider()
-    private var statusItem: NSStatusItem!
+    // Optional — nil in merged-deferred mode (the launcher hosts
+    // the visible Quarantine; this process exists only to handle
+    // widget AppIntents before exiting). showPopover() guards.
+    private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var clickMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        SuiteGuard.exitIfDeferring("quarantine")
-
         NSApp.setActivationPolicy(.accessory)
 
-        statusItem = NSStatusBar.system.statusItem(
+        // Register IntentBus BEFORE deciding whether to defer. The
+        // widget's RescanIntent declares openAppWhenRun = true, so
+        // the system dispatches perform() to this process shortly
+        // after this method returns. Hard-exiting via SuiteGuard
+        // first silences the button.
+        IntentBus.shared.register { [weak self] in
+            self?.pane.paneRescan()
+            self?.showPopover()
+        }
+        pane.paneStart()
+        UNUserNotificationCenter.current().delegate = self
+
+        if SuiteGuard.shouldDeferToHost("quarantine") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 15) {
+                NSApp.terminate(nil)
+            }
+            return
+        }
+
+        let item = NSStatusBar.system.statusItem(
             withLength: NSStatusItem.variableLength)
-        if let button = statusItem.button {
+        statusItem = item
+        if let button = item.button {
             button.image = pane.paneMenuBarImage()
             button.action = #selector(togglePopover(_:))
             button.target = self
@@ -41,9 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = vc
-
-        pane.paneStart()
-        UNUserNotificationCenter.current().delegate = self
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -52,7 +71,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
     }
 
     private func showPopover() {
-        guard let button = statusItem.button else { return }
+        // Nil in merged mode — silently no-op so widget-intent
+        // dispatch doesn't crash trying to surface a popover that
+        // doesn't exist.
+        guard let statusItem, let button = statusItem.button else {
+            return
+        }
         popover.show(relativeTo: button.bounds, of: button,
                      preferredEdge: .minY)
         if let win = popover.contentViewController?.view.window {
