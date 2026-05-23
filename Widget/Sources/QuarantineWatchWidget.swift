@@ -29,10 +29,17 @@ struct QuarantineWidgetView: View {
     let entry: QuarantineEntry
 
     var body: some View {
-        switch family {
-        case .systemSmall:  SmallView(entry: entry)
-        case .systemMedium: MediumView(entry: entry)
-        default:            SmallView(entry: entry)
+        Group {
+            switch family {
+            case .systemSmall:  SmallView(entry: entry)
+            case .systemMedium: MediumView(entry: entry)
+            default:            SmallView(entry: entry)
+            }
         }
+        // Desktop-widget tap → MattsSoftware launcher pops its
+        // popover already switched to the Quarantine pane. Without
+        // this URL hook tapping launches the standalone bundle
+        // id, SuiteGuard exits in merged mode, nothing visible.
+        .widgetURL(URL(string: "mattssoftware://quarantine"))
     }
 }

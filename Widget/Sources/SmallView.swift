@@ -51,7 +51,7 @@ struct SmallView: View {
             // across focused / dimmed states.
             HStack(spacing: 6) {
                 Button(intent: DefangNeedsReviewIntent()) {
-                    Label("Defang", systemImage: "lock.shield")
+                    Text("Defang")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

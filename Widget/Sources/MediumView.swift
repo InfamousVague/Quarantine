@@ -44,7 +44,7 @@ struct MediumView: View {
                 // Matching the Refresh glyph button keeps both legible.
                 HStack(spacing: 6) {
                     Button(intent: DefangNeedsReviewIntent()) {
-                        Label("Defang", systemImage: "lock.shield")
+                        Text("Defang")
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
